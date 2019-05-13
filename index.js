@@ -1,4 +1,4 @@
-const NUM_FRAMES = 3;
+const NUM_FRAMES = 2;
 // each frame is 23ms of audio containing 232 numbers that correspond to different frequencies [note: 232 frequency buckets are needed to capture the human voice]
 const INPUT_SHAPE = [NUM_FRAMES, 232, 1];
 
@@ -6,7 +6,7 @@ const INPUT_SHAPE = [NUM_FRAMES, 232, 1];
 let model;
 let recognizer;
 // examples is where all the data for collect() is stored, contains label and vals
-// label = 0, 1 or 2 for "Left", "Right" or "Noise" respectively
+// label = 0 or 1 for "voice" or "music" respectively
 // vals = 696 numbers holding the frequency information (the spectorgram)
 let examples = [];
 
@@ -47,7 +47,7 @@ function normalize(x) {
 // trains the model using the collected data
 async function train() {
     toggleButtons(false);
-    const ys = tf.oneHot(examples.map(e => e.label), 3);
+    const ys = tf.oneHot(examples.map(e => e.label), 2);
     const xsShape = [examples.length, ...INPUT_SHAPE];
     const xs = tf.tensor(flatten(examples.map(e => e.vals)), xsShape);
 
@@ -73,7 +73,7 @@ function buildModel() {
     // layer one is a convolutional layer that processes the audio data (represented as a spectrogram)
     model.add(tf.layers.depthwiseConv2d({
         depthMulitplier: 8,
-        kernelSize: [NUM_FRAMES, 3],
+        kernelSize: [NUM_FRAMES, 2],
         activation: 'relu',
         inputShape: INPUT_SHAPE
     }));
@@ -81,8 +81,8 @@ function buildModel() {
     model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
     // layer three is a flatten layer
     model.add(tf.layers.flatten());
-    // layer four is a dense layer that maps to the three actions
-    model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
+    // layer four is a dense layer that maps to the two actions
+    model.add(tf.layers.dense({units: 2, activation: 'softmax'}));
     // compiling our model to get it ready for training
     // the adam optimizer is a "Method for Stochatic Optimization" - stochatic is just a fancy word for random
     const optimizer = tf.train.adam(0.01);
@@ -110,13 +110,10 @@ function flatten(tensors) {
 }
 
 
-// decreases the value of the slider if the label is 0 "Left", increases if the label is 1 "Right" and ignores if the label is 2 "Noise"
+// decreases the value of the slider if the label is 0 "voice", increases if the label is 1 "music"
 async function moveSlider(labelTensor) {
     const label = (await labelTensor.data())[0];
     document.getElementById('console').textContent = label;
-    if (label == 2) {
-        return;
-    }
     let delta = 0.1;
     const prevValue = +document.getElementById('output').value;
     document.getElementById('output').value = prevValue + (label === 0 ? -delta : delta);
